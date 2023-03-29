@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-lambda-bucket
+  HelloWorldFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: my-go-lambda
+      Handler: hellolambda
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: go1.x
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref MyBucket
+        S3Key: hellolambda.zip
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: lambda-execution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 'arn:aws:logs:*:*:*'
+  ApiGatewayRestApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: HelloWorldApi
+  ApiGatewayResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: helloworld
+      RestApiId: !Ref ApiGatewayRestApi
+  ApiGatewayMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloWorldFunction.Arn}/invocations'
+  ApiGatewayDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod

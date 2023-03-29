@@ -1,0 +1,40 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-lambda-bucket
+
+  MyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: my-go-lambda
+      Handler: hellolambda
+      Role: !GetAtt MyRole.Arn
+      Runtime: go1.x
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref MyBucket
+        S3Key: hellolambda.zip
+
+  MyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: my-go-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+Outputs:
+  FunctionArn:
+    Value: !GetAtt MyFunction.Arn
+    Description: ARN of the Golang Lambda function
